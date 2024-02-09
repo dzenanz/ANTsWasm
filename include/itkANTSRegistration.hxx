@@ -41,7 +41,7 @@ ANTSRegistration<TFixedImage, TMovingImage, TParametersValueType>::ANTSRegistrat
   SetPrimaryOutputName("ForwardTransform");
   // AddRequiredOutputName("InverseTransform", 1); // this method does not exist in ProcessObject
 
-  this->ProcessObject::SetNthOutput(0, MakeOutput(0));
+  this->ProcessObject::SetNthOutput(0, MakeOutput(0)); // crashes
   this->ProcessObject::SetNthOutput(1, MakeOutput(1));
 }
 
@@ -55,6 +55,8 @@ ANTSRegistration<TFixedImage, TMovingImage, TParametersValueType>::PrintSelf(std
   os << indent << "TypeOfTransform: " << this->m_TypeOfTransform << std::endl;
   os << indent << "AffineMetric: " << this->m_AffineMetric << std::endl;
   os << indent << "SynMetric: " << this->m_SynMetric << std::endl;
+
+  os << indent << "InitialTransform: " << this->m_InitialTransform << std::endl;
 
   os << indent << "GradientStep: " << this->m_GradientStep << std::endl;
   os << indent << "FlowSigma: " << this->m_FlowSigma << std::endl;
@@ -188,18 +190,18 @@ ANTSRegistration<TFixedImage, TMovingImage, TParametersValueType>::GetMovingMask
 template <typename TFixedImage, typename TMovingImage, typename TParametersValueType>
 auto
 ANTSRegistration<TFixedImage, TMovingImage, TParametersValueType>::GetOutput(DataObjectPointerArraySizeType index)
-  -> DecoratedOutputTransformType *
+  -> OutputTransformType *
 {
-  return static_cast<DecoratedOutputTransformType *>(this->ProcessObject::GetOutput(index));
+  return reinterpret_cast<OutputTransformType *>(this->ProcessObject::GetOutput(index));
 }
 
 
 template <typename TFixedImage, typename TMovingImage, typename TParametersValueType>
 auto
 ANTSRegistration<TFixedImage, TMovingImage, TParametersValueType>::GetOutput(DataObjectPointerArraySizeType index) const
-  -> const DecoratedOutputTransformType *
+  -> const OutputTransformType *
 {
-  return static_cast<const DecoratedOutputTransformType *>(this->ProcessObject::GetOutput(index));
+  return reinterpret_cast<const OutputTransformType *>(this->ProcessObject::GetOutput(index));
 }
 
 
@@ -227,14 +229,14 @@ template <typename TFixedImage, typename TMovingImage, typename TParametersValue
 void
 ANTSRegistration<TFixedImage, TMovingImage, TParametersValueType>::AllocateOutputs()
 {
-  const DecoratedOutputTransformType * decoratedOutputForwardTransform = this->GetOutput(0);
-  if (!decoratedOutputForwardTransform || !decoratedOutputForwardTransform->Get())
+  const OutputTransformType * forwardTransform = this->GetOutput(0);
+  if (!forwardTransform)
   {
     this->ProcessObject::SetNthOutput(0, MakeOutput(0));
   }
 
-  const DecoratedOutputTransformType * decoratedOutputInverseTransform = this->GetOutput(1);
-  if (!decoratedOutputInverseTransform || !decoratedOutputInverseTransform->Get())
+  const OutputTransformType * inverseTransform = this->GetOutput(1);
+  if (!inverseTransform)
   {
     this->ProcessObject::SetNthOutput(1, MakeOutput(1));
   }
@@ -248,9 +250,7 @@ ANTSRegistration<TFixedImage, TMovingImage, TParametersValueType>::MakeOutput(Da
 {
   typename OutputTransformType::Pointer ptr;
   Self::MakeOutputTransform(ptr);
-  typename DecoratedOutputTransformType::Pointer decoratedOutputTransform = DecoratedOutputTransformType::New();
-  decoratedOutputTransform->Set(ptr);
-  return decoratedOutputTransform;
+  return reinterpret_cast<DataObject *>(ptr.GetPointer());
 }
 
 
@@ -475,13 +475,7 @@ ANTSRegistration<TFixedImage, TMovingImage, TParametersValueType>::GenerateData(
 
   this->UpdateProgress(0.01);
 
-  const InitialTransformType *          initialTransform = nullptr;
-  const DecoratedInitialTransformType * decoratedInitialTransform = this->GetInitialTransformInput();
-  if (decoratedInitialTransform != nullptr)
-  {
-    initialTransform = decoratedInitialTransform->Get();
-  }
-
+  const InitialTransformType * initialTransform = this->GetInitialTransform();
   typename InternalImageType::Pointer fixedImage = this->CastImageToInternalType(this->GetFixedImage());
   typename InternalImageType::Pointer movingImage = this->CastImageToInternalType(this->GetMovingImage());
 

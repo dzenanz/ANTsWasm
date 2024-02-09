@@ -59,8 +59,6 @@ public:
   using InitialTransformType = TransformType;
   using CompositeTransformType = CompositeTransform<ParametersValueType, ImageDimension>;
   using OutputTransformType = CompositeTransformType;
-  using DecoratedInitialTransformType = DataObjectDecorator<InitialTransformType>;
-  using DecoratedOutputTransformType = DataObjectDecorator<OutputTransformType>;
 
   /** Standard class aliases. */
   using Self = ANTSRegistration<FixedImageType, MovingImageType, ParametersValueType>;
@@ -151,20 +149,21 @@ public:
   /** Set/Get the initial transform.
    * It transforms points from the fixed image to the moving image reference frame.
    * It is typically used to resample the moving image onto the fixed image grid. */
-  itkSetGetDecoratedObjectInputMacro(InitialTransform, InitialTransformType);
+  itkSetObjectMacro(InitialTransform, InitialTransformType);
+  itkGetConstObjectMacro(InitialTransform, InitialTransformType);
 
   /** Returns the transform resulting from the registration process  */
   virtual const OutputTransformType *
   GetForwardTransform() const
   {
-    return this->GetOutput(0)->Get();
+    return this->GetOutput(0);
   }
 
   /** Returns the inverse transform resulting from the registration process, if available  */
   virtual const OutputTransformType *
   GetInverseTransform() const
   {
-    return this->GetOutput(1)->Get();
+    return this->GetOutput(1);
   }
 
   /** Set/Get the gradient step size for transform optimizers that use it. */
@@ -245,16 +244,16 @@ public:
   itkSetMacro(RestrictTransformation, std::vector<ParametersValueType>);
   itkGetConstReferenceMacro(RestrictTransformation, std::vector<ParametersValueType>);
 
-  virtual DecoratedOutputTransformType *
+  virtual OutputTransformType *
   GetOutput(DataObjectPointerArraySizeType i);
-  virtual const DecoratedOutputTransformType *
+  virtual const OutputTransformType *
   GetOutput(DataObjectPointerArraySizeType i) const;
-  virtual DecoratedOutputTransformType *
+  virtual OutputTransformType *
   GetOutput()
   {
     return this->GetOutput(0); // return the forward transform
   }
-  virtual const DecoratedOutputTransformType *
+  virtual const OutputTransformType *
   GetOutput() const
   {
     return this->GetOutput(0); // return the forward transform
@@ -319,21 +318,23 @@ protected:
 
   /** Sets the primary output to the provided forward transform. */
   virtual void
-  SetForwardTransform(const OutputTransformType * forwardTransform)
+  SetForwardTransform(OutputTransformType * forwardTransform)
   {
-    return this->GetOutput(0)->Set(forwardTransform);
+    return this->SetNthOutput(0u, reinterpret_cast<DataObject *>(forwardTransform));
   }
 
   /** Sets the second output to the provided inverse transform. */
   virtual void
-  SetInverseTransform(const OutputTransformType * inverseTransform)
+  SetInverseTransform(OutputTransformType * inverseTransform)
   {
-    return this->GetOutput(1)->Set(inverseTransform);
+    return this->SetNthOutput(1u, reinterpret_cast<DataObject *>(inverseTransform));
   }
 
   std::string m_TypeOfTransform{ "Affine" };
   std::string m_AffineMetric{ "Mattes" };
   std::string m_SynMetric{ "Mattes" };
+
+  typename InitialTransformType::Pointer m_InitialTransform;
 
   ParametersValueType m_GradientStep{ 0.2 };
   ParametersValueType m_FlowSigma{ 3.0 };
